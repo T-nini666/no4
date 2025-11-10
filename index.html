@@ -4,8 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>第4章 - 数据可视化交互平台</title>
-    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <!-- 使用可靠的CDN源 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.1/plotly.min.js"></script>
     <script src="https://d3js.org/d3.v7.min.js"></script>
+
+
     <style>
         * {
             margin: 0;
@@ -210,6 +213,144 @@
             border: 1px solid #f5c6cb;
         }
         
+        /* 数据编辑区域样式 */
+        .data-editor {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        .editor-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #ecf0f1;
+        }
+        
+        .editor-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .editor-btn {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 10px rgba(52, 152, 219, 0.3);
+        }
+        
+        .editor-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.4);
+        }
+        
+        .editor-btn.primary {
+            background: linear-gradient(135deg, #2ecc71, #27ae60);
+        }
+        
+        .editor-btn.danger {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+        }
+        
+        .data-table-container {
+            overflow-x: auto;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            border: 1px solid #ecf0f1;
+        }
+        
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+        
+        .data-table th,
+        .data-table td {
+            padding: 12px;
+            text-align: center;
+            border: 1px solid #ecf0f1;
+        }
+        
+        .data-table th {
+            background: linear-gradient(135deg, #34495e, #2c3e50);
+            color: white;
+            font-weight: bold;
+        }
+        
+        .data-table tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+        
+        .data-table tr:hover {
+            background: #e8f4fd;
+        }
+        
+        .data-table input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+            text-align: center;
+            transition: border-color 0.3s ease;
+        }
+        
+        .data-table input:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 5px rgba(52, 152, 219, 0.3);
+        }
+        
+        .preview-section {
+            background: rgba(52, 152, 219, 0.05);
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+        
+        .preview-title {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+        
+        .file-input-container {
+            position: relative;
+            display: inline-block;
+            margin: 10px 0;
+        }
+        
+        .file-input {
+            position: absolute;
+            left: -9999px;
+        }
+        
+        .file-label {
+            display: inline-block;
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #9b59b6, #8e44ad);
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .file-label:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(155, 89, 182, 0.4);
+        }
+        
         .footer {
             text-align: center;
             margin-top: 40px;
@@ -223,6 +364,26 @@
             .controls { flex-direction: column; }
             .nav-tabs { flex-direction: column; }
             .save-section { flex-direction: column; }
+            .editor-toolbar { flex-direction: column; gap: 15px; }
+            .editor-actions { justify-content: center; }
+            
+            /* 移动设备上的数据编辑区域布局 */
+            #tab1 > div,
+            #tab2 > div,
+            #tab3 > div,
+            #tab5 > div {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .data-table-container {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            
+            .data-table {
+                min-width: 500px;
+            }
         }
     </style>
 </head>
@@ -243,124 +404,241 @@
         
         <!-- 图书采购柱状图 -->
         <div id="tab1" class="tab-content active">
-            <div class="chart-container">
-                <h2 class="chart-title">图书采购情况对比</h2>
-                <p class="chart-description">两个地区对不同种类图书的采购情况对比分析</p>
-                
-                <div class="controls">
-                    <div class="control-group">
-                        <label>地区1数据调整</label>
-                        <input type="range" class="control-input" id="region1Slider" min="50" max="200" value="100" onchange="updateBarChart()">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div class="chart-container">
+                    <h2 class="chart-title">图书采购情况对比</h2>
+                    <p class="chart-description">两个地区对不同种类图书的采购情况对比分析</p>
+                    
+                    <div class="controls">
+                        <div class="control-group">
+                            <label>地区1数据调整</label>
+                            <input type="range" class="control-input" id="region1Slider" min="50" max="200" value="100" onchange="updateBarChart()">
+                        </div>
+                        <div class="control-group">
+                            <label>地区2数据调整</label>
+                            <input type="range" class="control-input" id="region2Slider" min="50" max="200" value="100" onchange="updateBarChart()">
+                        </div>
+                        <div class="control-group">
+                            <label>图表类型</label>
+                            <select class="control-input" id="barType" onchange="updateBarChart()">
+                                <option value="stacked">堆叠柱状图</option>
+                                <option value="grouped">分组柱状图</option>
+                            </select>
+                        </div>
                     </div>
-                    <div class="control-group">
-                        <label>地区2数据调整</label>
-                        <input type="range" class="control-input" id="region2Slider" min="50" max="200" value="100" onchange="updateBarChart()">
-                    </div>
-                    <div class="control-group">
-                        <label>图表类型</label>
-                        <select class="control-input" id="barType" onchange="updateBarChart()">
-                            <option value="stacked">堆叠柱状图</option>
-                            <option value="grouped">分组柱状图</option>
+                    
+                    <div id="barChart" class="chart"></div>
+                    
+                    <div class="save-section">
+                        <h3>保存图表</h3>
+                        <select class="format-select" id="barChartFormat">
+                            <option value="png">PNG 图片</option>
+                            <option value="jpg">JPG 图片</option>
+                            <option value="svg">SVG 矢量图</option>
                         </select>
+                        <button class="save-btn" onclick="saveChart('barChart', '图书采购情况对比')">💾 保存图表</button>
+                        <div id="barChartStatus" class="status-message"></div>
                     </div>
                 </div>
                 
-                <div id="barChart" class="chart"></div>
-                
-                <div class="save-section">
-                    <h3>保存图表</h3>
-                    <select class="format-select" id="barChartFormat">
-                        <option value="png">PNG 图片</option>
-                        <option value="jpg">JPG 图片</option>
-                        <option value="svg">SVG 矢量图</option>
-                    </select>
-                    <button class="save-btn" onclick="saveChart('barChart', '图书采购情况对比')">💾 保存图表</button>
-                    <div id="barChartStatus" class="status-message"></div>
+                <!-- 图书采购数据编辑区域 -->
+                <div class="data-editor">
+                    <h3 class="preview-title">📊 图书采购数据编辑</h3>
+                    <p class="chart-description">直接编辑数据，实时预览图表效果</p>
+                    
+                    <div class="editor-toolbar">
+                        <div class="editor-actions">
+                            <button class="editor-btn" onclick="barData.addRow()">➕ 添加行</button>
+                            <button class="editor-btn primary" onclick="barData.applyChanges()">✅ 应用更改</button>
+                            <button class="editor-btn danger" onclick="barData.resetData()">🔄 重置数据</button>
+                        </div>
+                    </div>
+                    
+                    <div class="data-table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>图书类别</th>
+                                    <th>地区1采购量</th>
+                                    <th>地区2采购量</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="barDataTableBody">
+                                <!-- 数据行将通过JavaScript动态生成 -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="save-section">
+                        <h3>数据操作</h3>
+                        <button class="save-btn" onclick="barData.exportData('csv')">📥 导出CSV</button>
+                        <button class="save-btn" onclick="barData.exportData('json')">📥 导出JSON</button>
+                        <div id="barDataStatus" class="status-message"></div>
+                    </div>
                 </div>
             </div>
         </div>
         
         <!-- 汇率走势折线图 -->
         <div id="tab2" class="tab-content">
-            <div class="chart-container">
-                <h2 class="chart-title">美元/人民币汇率走势</h2>
-                <p class="chart-description">2017年7月与2019年7月汇率对比分析</p>
-                
-                <div class="controls">
-                    <div class="control-group">
-                        <label>2017年汇率</label>
-                        <input type="checkbox" id="show2017" checked onchange="updateLineChart()">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div class="chart-container">
+                    <h2 class="chart-title">美元/人民币汇率走势</h2>
+                    <p class="chart-description">2017年7月与2019年7月汇率对比分析</p>
+                    
+                    <div class="controls">
+                        <div class="control-group">
+                            <label>2017年汇率</label>
+                            <input type="checkbox" id="show2017" checked onchange="updateLineChart()">
+                        </div>
+                        <div class="control-group">
+                            <label>2019年汇率</label>
+                            <input type="checkbox" id="show2019" checked onchange="updateLineChart()">
+                        </div>
+                        <div class="control-group">
+                            <label>显示网格</label>
+                            <input type="checkbox" id="showGrid" checked onchange="updateLineChart()">
+                        </div>
+                        <div class="control-group">
+                            <label>平滑曲线</label>
+                            <input type="checkbox" id="smoothLine" onchange="updateLineChart()">
+                        </div>
                     </div>
-                    <div class="control-group">
-                        <label>2019年汇率</label>
-                        <input type="checkbox" id="show2019" checked onchange="updateLineChart()">
-                    </div>
-                    <div class="control-group">
-                        <label>显示网格</label>
-                        <input type="checkbox" id="showGrid" checked onchange="updateLineChart()">
-                    </div>
-                    <div class="control-group">
-                        <label>平滑曲线</label>
-                        <input type="checkbox" id="smoothLine" onchange="updateLineChart()">
+                    
+                    <div id="lineChart" class="chart"></div>
+                    
+                    <div class="save-section">
+                        <h3>保存图表</h3>
+                        <select class="format-select" id="lineChartFormat">
+                            <option value="png">PNG 图片</option>
+                            <option value="jpg">JPG 图片</option>
+                            <option value="svg">SVG 矢量图</option>
+                        </select>
+                        <button class="save-btn" onclick="saveChart('lineChart', '美元人民币汇率走势')">💾 保存图表</button>
+                        <div id="lineChartStatus" class="status-message"></div>
                     </div>
                 </div>
                 
-                <div id="lineChart" class="chart"></div>
-                
-                <div class="save-section">
-                    <h3>保存图表</h3>
-                    <select class="format-select" id="lineChartFormat">
-                        <option value="png">PNG 图片</option>
-                        <option value="jpg">JPG 图片</option>
-                        <option value="svg">SVG 矢量图</option>
-                    </select>
-                    <button class="save-btn" onclick="saveChart('lineChart', '美元人民币汇率走势')">💾 保存图表</button>
-                    <div id="lineChartStatus" class="status-message"></div>
+                <!-- 汇率数据编辑区域 -->
+                <div class="data-editor">
+                    <h3 class="preview-title">📊 汇率数据编辑</h3>
+                    <p class="chart-description">直接编辑汇率数据，实时预览图表效果</p>
+                    
+                    <div class="editor-toolbar">
+                        <div class="editor-actions">
+                            <button class="editor-btn" onclick="lineData.addRow()">➕ 添加日期</button>
+                            <button class="editor-btn primary" onclick="lineData.applyChanges()">✅ 应用更改</button>
+                            <button class="editor-btn danger" onclick="lineData.resetData()">🔄 重置数据</button>
+                        </div>
+                    </div>
+                    
+                    <div class="data-table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>日期</th>
+                                    <th>2017年汇率</th>
+                                    <th>2019年汇率</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="lineDataTableBody">
+                                <!-- 数据行将通过JavaScript动态生成 -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="save-section">
+                        <h3>数据操作</h3>
+                        <button class="save-btn" onclick="lineData.exportData('csv')">📥 导出CSV</button>
+                        <button class="save-btn" onclick="lineData.exportData('json')">📥 导出JSON</button>
+                        <div id="lineDataStatus" class="status-message"></div>
+                    </div>
                 </div>
             </div>
         </div>
         
         <!-- 温度变化趋势图 -->
         <div id="tab3" class="tab-content">
-            <div class="chart-container">
-                <h2 class="chart-title">温度变化趋势图</h2>
-                <p class="chart-description">最高和最低温度变化趋势对比</p>
-                
-                <div class="controls">
-                    <div class="control-group">
-                        <label>最高温度</label>
-                        <input type="checkbox" id="showMaxTemp" checked onchange="updateTempChart()">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div class="chart-container">
+                    <h2 class="chart-title">温度变化趋势图</h2>
+                    <p class="chart-description">最高和最低温度变化趋势对比</p>
+                    
+                    <div class="controls">
+                        <div class="control-group">
+                            <label>最高温度</label>
+                            <input type="checkbox" id="showMaxTemp" checked onchange="updateTempChart()">
+                        </div>
+                        <div class="control-group">
+                            <label>最低温度</label>
+                            <input type="checkbox" id="showMinTemp" checked onchange="updateTempChart()">
+                        </div>
+                        <div class="control-group">
+                            <label>标记样式</label>
+                            <select class="control-input" id="markerStyle" onchange="updateTempChart()">
+                                <option value="star">星号标记</option>
+                                <option value="circle">圆形标记</option>
+                                <option value="square">方形标记</option>
+                                <option value="none">无标记</option>
+                            </select>
+                        </div>
+                        <div class="control-group">
+                            <label>填充区域</label>
+                            <input type="checkbox" id="fillArea" onchange="updateTempChart()">
+                        </div>
                     </div>
-                    <div class="control-group">
-                        <label>最低温度</label>
-                        <input type="checkbox" id="showMinTemp" checked onchange="updateTempChart()">
-                    </div>
-                    <div class="control-group">
-                        <label>标记样式</label>
-                        <select class="control-input" id="markerStyle" onchange="updateTempChart()">
-                            <option value="star">星号标记</option>
-                            <option value="circle">圆形标记</option>
-                            <option value="square">方形标记</option>
-                            <option value="none">无标记</option>
+                    
+                    <div id="tempChart" class="chart"></div>
+                    
+                    <div class="save-section">
+                        <h3>保存图表</h3>
+                        <select class="format-select" id="tempChartFormat">
+                            <option value="png">PNG 图片</option>
+                            <option value="jpg">JPG 图片</option>
+                            <option value="svg">SVG 矢量图</option>
                         </select>
-                    </div>
-                    <div class="control-group">
-                        <label>填充区域</label>
-                        <input type="checkbox" id="fillArea" onchange="updateTempChart()">
+                        <button class="save-btn" onclick="saveChart('tempChart', '温度变化趋势图')">💾 保存图表</button>
+                        <div id="tempChartStatus" class="status-message"></div>
                     </div>
                 </div>
                 
-                <div id="tempChart" class="chart"></div>
-                
-                <div class="save-section">
-                    <h3>保存图表</h3>
-                    <select class="format-select" id="tempChartFormat">
-                        <option value="png">PNG 图片</option>
-                        <option value="jpg">JPG 图片</option>
-                        <option value="svg">SVG 矢量图</option>
-                    </select>
-                    <button class="save-btn" onclick="saveChart('tempChart', '温度变化趋势图')">💾 保存图表</button>
-                    <div id="tempChartStatus" class="status-message"></div>
+                <!-- 温度数据编辑区域 -->
+                <div class="data-editor">
+                    <h3 class="preview-title">📊 温度数据编辑</h3>
+                    <p class="chart-description">直接编辑温度数据，实时预览图表效果</p>
+                    
+                    <div class="editor-toolbar">
+                        <div class="editor-actions">
+                            <button class="editor-btn" onclick="tempData.addRow()">➕ 添加日期</button>
+                            <button class="editor-btn primary" onclick="tempData.applyChanges()">✅ 应用更改</button>
+                            <button class="editor-btn danger" onclick="tempData.resetData()">🔄 重置数据</button>
+                        </div>
+                    </div>
+                    
+                    <div class="data-table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>日期</th>
+                                    <th>最高温度</th>
+                                    <th>最低温度</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tempDataTableBody">
+                                <!-- 数据行将通过JavaScript动态生成 -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="save-section">
+                        <h3>数据操作</h3>
+                        <button class="save-btn" onclick="tempData.exportData('csv')">📥 导出CSV</button>
+                        <button class="save-btn" onclick="tempData.exportData('json')">📥 导出JSON</button>
+                        <div id="tempDataStatus" class="status-message"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -411,45 +689,84 @@
         
         <!-- 数据标记样式 -->
         <div id="tab5" class="tab-content">
-            <div class="chart-container">
-                <h2 class="chart-title">数据标记样式展示</h2>
-                <p class="chart-description">不同的数据标记样式和文本标注效果</p>
-                
-                <div class="controls">
-                    <div class="control-group">
-                        <label>标记类型</label>
-                        <select class="control-input" id="markerType" onchange="updateMarkerDemo()">
-                            <option value="star">星号标记</option>
-                            <option value="circle">圆形标记</option>
-                            <option value="square">方形标记</option>
-                            <option value="diamond">菱形标记</option>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div class="chart-container">
+                    <h2 class="chart-title">数据标记样式展示</h2>
+                    <p class="chart-description">不同的数据标记样式和文本标注效果</p>
+                    
+                    <div class="controls">
+                        <div class="control-group">
+                            <label>标记类型</label>
+                            <select class="control-input" id="markerType" onchange="updateMarkerDemo()">
+                                <option value="star">星号标记</option>
+                                <option value="circle">圆形标记</option>
+                                <option value="square">方形标记</option>
+                                <option value="diamond">菱形标记</option>
+                            </select>
+                        </div>
+                        <div class="control-group">
+                            <label>标记大小</label>
+                            <input type="range" class="control-input" id="markerSize" min="5" max="30" value="15" onchange="updateMarkerDemo()">
+                        </div>
+                        <div class="control-group">
+                            <label>标记颜色</label>
+                            <input type="color" class="control-input" id="markerColor" value="#FF6B6B" onchange="updateMarkerDemo()">
+                        </div>
+                        <div class="control-group">
+                            <label>边框颜色</label>
+                            <input type="color" class="control-input" id="borderColor" value="#2980B9" onchange="updateMarkerDemo()">
+                        </div>
+                    </div>
+                    
+                    <div id="markerChart" class="chart"></div>
+                    
+                    <div class="save-section">
+                        <h3>保存图表</h3>
+                        <select class="format-select" id="markerChartFormat">
+                            <option value="png">PNG 图片</option>
+                            <option value="jpg">JPG 图片</option>
+                            <option value="svg">SVG 矢量图</option>
                         </select>
-                    </div>
-                    <div class="control-group">
-                        <label>标记大小</label>
-                        <input type="range" class="control-input" id="markerSize" min="5" max="30" value="15" onchange="updateMarkerDemo()">
-                    </div>
-                    <div class="control-group">
-                        <label>标记颜色</label>
-                        <input type="color" class="control-input" id="markerColor" value="#FF6B6B" onchange="updateMarkerDemo()">
-                    </div>
-                    <div class="control-group">
-                        <label>边框颜色</label>
-                        <input type="color" class="control-input" id="borderColor" value="#2980B9" onchange="updateMarkerDemo()">
+                        <button class="save-btn" onclick="saveChart('markerChart', '数据标记样式展示')">💾 保存图表</button>
+                        <div id="markerChartStatus" class="status-message"></div>
                     </div>
                 </div>
                 
-                <div id="markerChart" class="chart"></div>
-                
-                <div class="save-section">
-                    <h3>保存图表</h3>
-                    <select class="format-select" id="markerChartFormat">
-                        <option value="png">PNG 图片</option>
-                        <option value="jpg">JPG 图片</option>
-                        <option value="svg">SVG 矢量图</option>
-                    </select>
-                    <button class="save-btn" onclick="saveChart('markerChart', '数据标记样式展示')">💾 保存图表</button>
-                    <div id="markerChartStatus" class="status-message"></div>
+                <!-- 标记数据编辑区域 -->
+                <div class="data-editor">
+                    <h3 class="preview-title">📊 标记数据编辑</h3>
+                    <p class="chart-description">直接编辑坐标点数据，实时预览标记效果</p>
+                    
+                    <div class="editor-toolbar">
+                        <div class="editor-actions">
+                            <button class="editor-btn" onclick="markerData.addRow()">➕ 添加点</button>
+                            <button class="editor-btn primary" onclick="markerData.applyChanges()">✅ 应用更改</button>
+                            <button class="editor-btn danger" onclick="markerData.resetData()">🔄 重置数据</button>
+                        </div>
+                    </div>
+                    
+                    <div class="data-table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>点名称</th>
+                                    <th>X坐标</th>
+                                    <th>Y坐标</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="markerDataTableBody">
+                                <!-- 数据行将通过JavaScript动态生成 -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="save-section">
+                        <h3>数据操作</h3>
+                        <button class="save-btn" onclick="markerData.exportData('csv')">📥 导出CSV</button>
+                        <button class="save-btn" onclick="markerData.exportData('json')">📥 导出JSON</button>
+                        <div id="markerDataStatus" class="status-message"></div>
+                    </div>
                 </div>
             </div>
         </div>

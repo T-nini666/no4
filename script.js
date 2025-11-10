@@ -1,5 +1,57 @@
 // 交互式数据可视化网页 - JavaScript功能实现
 
+// 全局Plotly错误处理
+function safePlotlyCall(chartId, data, layout, config) {
+    if (typeof Plotly === 'undefined') {
+        console.error('Plotly库未加载，无法绘制图表');
+        
+        // 显示错误信息
+        const chartElement = document.getElementById(chartId);
+        if (chartElement) {
+            chartElement.innerHTML = `
+                <div style="display: flex; align-items: center; justify-content: center; height: 100%; flex-direction: column; color: #666; font-size: 16px;">
+                    <div style="font-size: 48px; margin-bottom: 20px;">📊</div>
+                    <div style="text-align: center;">
+                        <strong>图表库加载失败</strong><br>
+                        <span style="font-size: 14px;">请检查网络连接后刷新页面</span>
+                    </div>
+                </div>
+            `;
+        }
+        return false;
+    }
+    
+    try {
+        Plotly.newPlot(chartId, data, layout, config);
+        return true;
+    } catch (error) {
+        console.error('Plotly绘图错误:', error);
+        
+        const chartElement = document.getElementById(chartId);
+        if (chartElement) {
+            chartElement.innerHTML = `
+                <div style="display: flex; align-items: center; justify-content: center; height: 100%; flex-direction: column; color: #e74c3c; font-size: 16px;">
+                    <div style="font-size: 48px; margin-bottom: 20px;">❌</div>
+                    <div style="text-align: center;">
+                        <strong>图表绘制失败</strong><br>
+                        <span style="font-size: 14px;">${error.message}</span>
+                    </div>
+                </div>
+            `;
+        }
+        return false;
+    }
+}
+
+// 检查Plotly可用性的包装函数
+function checkPlotlyAvailable() {
+    if (typeof Plotly === 'undefined') {
+        console.warn('Plotly库不可用');
+        return false;
+    }
+    return true;
+}
+
 // 标签页切换功能
 function showTab(tabId) {
     // 隐藏所有标签页内容
@@ -16,7 +68,10 @@ function showTab(tabId) {
     document.getElementById(tabId).classList.add('active');
     
     // 激活对应的标签按钮
-    event.target.classList.add('active');
+    const targetButton = document.querySelector(`[onclick="showTab('${tabId}')"]`);
+    if (targetButton) {
+        targetButton.classList.add('active');
+    }
     
     // 根据标签页初始化对应的图表
     initializeChart(tabId);
@@ -26,18 +81,22 @@ function showTab(tabId) {
 function initializeChart(tabId) {
     switch(tabId) {
         case 'tab1':
+            barData.initTable();
             updateBarChart();
             break;
         case 'tab2':
+            lineData.initTable();
             updateLineChart();
             break;
         case 'tab3':
+            tempData.initTable();
             updateTempChart();
             break;
         case 'tab4':
             updateKochSnowflake();
             break;
         case 'tab5':
+            markerData.initTable();
             updateMarkerDemo();
             break;
     }
@@ -49,10 +108,10 @@ function updateBarChart() {
     const region2Factor = document.getElementById('region2Slider').value / 100;
     const barType = document.getElementById('barType').value;
     
-    // 基于原始数据调整
-    const bookTypes = ['科普类', '文学类', '历史类', '数学类', '外语类'];
-    const region1Data = [120, 150, 90, 110, 130].map(val => val * region1Factor);
-    const region2Data = [100, 140, 110, 95, 120].map(val => val * region2Factor);
+    // 使用编辑区域的数据
+    const bookTypes = barData.categories;
+    const region1Data = barData.region1.map(val => val * region1Factor);
+    const region2Data = barData.region2.map(val => val * region2Factor);
     
     const trace1 = {
         x: bookTypes,
@@ -106,9 +165,10 @@ function updateLineChart() {
     const showGrid = document.getElementById('showGrid').checked;
     const smoothLine = document.getElementById('smoothLine').checked;
     
-    const dates = ['7月1日', '7月5日', '7月10日', '7月15日', '7月20日', '7月25日', '7月31日'];
-    const rates2017 = [6.78, 6.79, 6.77, 6.76, 6.75, 6.74, 6.73];
-    const rates2019 = [6.87, 6.88, 6.86, 6.85, 6.84, 6.83, 6.82];
+    // 使用编辑区域的数据
+    const dates = lineData.dates;
+    const rates2017 = lineData.rates2017;
+    const rates2019 = lineData.rates2019;
     
     const traces = [];
     
@@ -179,9 +239,10 @@ function updateTempChart() {
     const markerStyle = document.getElementById('markerStyle').value;
     const fillArea = document.getElementById('fillArea').checked;
     
-    const days = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
-    const maxTemps = [28, 30, 32, 29, 27, 25, 26];
-    const minTemps = [18, 20, 22, 19, 17, 15, 16];
+    // 使用编辑区域的数据
+    const days = tempData.days;
+    const maxTemps = tempData.maxTemps;
+    const minTemps = tempData.minTemps;
     
     const traces = [];
     
@@ -276,7 +337,7 @@ function updateKochSnowflake() {
     const fillMode = document.getElementById('fillMode').value;
     
     // 使用D3.js创建科赫雪花
-    const svg = d3.select('#kochChart').html('');
+    d3.select('#kochChart').html('');
     
     const width = document.getElementById('kochChart').offsetWidth;
     const height = document.getElementById('kochChart').offsetHeight;
@@ -365,7 +426,7 @@ function updateKochSnowflake() {
         .attr('mode', 'screen');
     
     // 主雪花路径
-    const snowflake = svgContainer.append('path')
+    svgContainer.append('path')
         .datum(points)
         .attr('d', lineGenerator)
         .attr('fill', fillMode === 'gradient' ? 'url(#snowflakeGradient)' : 
@@ -511,9 +572,12 @@ function updateMarkerDemo() {
     const markerColor = document.getElementById('markerColor').value;
     const borderColor = document.getElementById('borderColor').value;
     
-    const x = [1, 2, 3, 4, 5];
-    const y = [2, 4, 6, 4, 2];
+    // 使用编辑区域的数据
+    const x = markerData.points.map(point => point.x);
+    const y = markerData.points.map(point => point.y);
+    const text = markerData.points.map(point => point.name);
     
+    // 数据标记轨迹
     const trace = {
         x: x,
         y: y,
@@ -533,7 +597,7 @@ function updateMarkerDemo() {
             width: 2,
             dash: 'dash'
         },
-        text: ['点A', '点B', '点C', '点D', '点E'],
+        text: text,
         textposition: 'top center',
         textfont: {
             family: 'Arial, sans-serif',
@@ -550,24 +614,7 @@ function updateMarkerDemo() {
         paper_bgcolor: 'rgba(0,0,0,0)',
         font: { family: 'Arial, sans-serif', size: 12 },
         margin: { l: 60, r: 40, t: 60, b: 60 },
-        annotations: [
-            {
-                x: 1.9,
-                y: 3.75,
-                text: 'y=x+2',
-                showarrow: false,
-                font: {
-                    family: 'serif',
-                    size: 18,
-                    color: '#e74c3c'
-                },
-                bgcolor: 'yellow',
-                bordercolor: 'black',
-                borderwidth: 1,
-                borderpad: 4,
-                opacity: 0.8
-            }
-        ]
+        showlegend: false
     };
     
     Plotly.newPlot('markerChart', [trace], layout, {
@@ -697,128 +744,546 @@ function showStatus(element, message, type) {
     }, 3000);
 }
 
-// 图表保存功能
-function saveChart(chartId, chartName) {
-    const formatSelect = document.getElementById(chartId + 'Format');
-    const format = formatSelect ? formatSelect.value : 'png';
-    const statusElement = document.getElementById(chartId + 'Status');
+// ==================== 数据编辑区域功能 ====================
+
+// 图书采购数据存储
+const barData = {
+    categories: ['科普类', '文学类', '历史类', '数学类', '外语类'],
+    region1: [120, 150, 90, 110, 130],
+    region2: [100, 140, 110, 95, 120],
     
-    try {
-        if (chartId === 'kochChart') {
-            saveSnowflake();
-            return;
-        }
+    // 初始化数据表
+    initTable: function() {
+        const tableBody = document.getElementById('barDataTableBody');
+        if (!tableBody) return;
         
-        // 使用Plotly的保存功能
-        Plotly.downloadImage(chartId, {
-            format: format,
-            filename: chartName + '_' + new Date().toISOString().slice(0, 10),
-            height: 800,
-            width: 1200,
-            scale: 2
-        }).then(() => {
-            showStatus(statusElement, '✅ 图表保存成功！', 'success');
-        }).catch(error => {
-            showStatus(statusElement, '❌ 保存失败: ' + error.message, 'error');
+        tableBody.innerHTML = '';
+        
+        this.categories.forEach((category, index) => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><input type="text" value="${category}" onchange="barData.updateData(${index}, 'category', this.value)"></td>
+                <td><input type="number" value="${this.region1[index]}" onchange="barData.updateData(${index}, 'region1', this.value)"></td>
+                <td><input type="number" value="${this.region2[index]}" onchange="barData.updateData(${index}, 'region2', this.value)"></td>
+                <td>
+                    <button class="editor-btn danger" onclick="barData.deleteRow(${index})" style="padding: 5px 10px; font-size: 0.8em;">删除</button>
+                </td>
+            `;
+            tableBody.appendChild(row);
         });
-    } catch (error) {
-        showStatus(statusElement, '❌ 保存失败: ' + error.message, 'error');
-    }
-}
-
-// 雪花保存功能
-function saveSnowflake() {
-    const formatSelect = document.getElementById('kochChartFormat');
-    const format = formatSelect ? formatSelect.value : 'png';
-    const statusElement = document.getElementById('kochChartStatus');
+    },
     
-    try {
-        const svgElement = document.querySelector('#kochChart svg');
-        if (!svgElement) {
-            showStatus(statusElement, '❌ 没有找到雪花图形', 'error');
+    // 更新数据
+    updateData: function(index, type, value) {
+        if (type === 'category') {
+            this.categories[index] = value;
+        } else if (type === 'region1') {
+            this.region1[index] = parseInt(value) || 0;
+        } else if (type === 'region2') {
+            this.region2[index] = parseInt(value) || 0;
+        }
+        
+        this.applyChanges();
+    },
+    
+    // 添加新行
+    addRow: function() {
+        this.categories.push('新类别');
+        this.region1.push(100);
+        this.region2.push(100);
+        
+        this.initTable();
+        this.showStatus('✅ 新行添加成功！', 'success');
+    },
+    
+    // 删除行
+    deleteRow: function(index) {
+        if (this.categories.length <= 1) {
+            this.showStatus('❌ 至少保留一行数据！', 'error');
             return;
         }
         
-        const svgData = new XMLSerializer().serializeToString(svgElement);
-        const svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
+        this.categories.splice(index, 1);
+        this.region1.splice(index, 1);
+        this.region2.splice(index, 1);
         
-        if (format === 'svg') {
-            // 直接下载SVG
-            downloadFile(svgBlob, '科赫雪花_' + new Date().toISOString().slice(0, 10) + '.svg');
-            showStatus(statusElement, '✅ SVG保存成功！', 'success');
-        } else {
-            // 将SVG转换为Canvas进行PNG/PDF导出
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            const img = new Image();
+        this.initTable();
+        this.showStatus('✅ 行删除成功！', 'success');
+    },
+    
+    // 应用更改到主图表
+    applyChanges: function() {
+        updateBarChart();
+        this.showStatus('✅ 更改已应用到图表！', 'success');
+    },
+    
+    // 重置数据
+    resetData: function() {
+        this.categories = ['科普类', '文学类', '历史类', '数学类', '外语类'];
+        this.region1 = [120, 150, 90, 110, 130];
+        this.region2 = [100, 140, 110, 95, 120];
+        
+        this.initTable();
+        this.showStatus('✅ 数据已重置！', 'success');
+    },
+    
+    // 导出数据
+    exportData: function(format) {
+        try {
+            let content, filename, mimeType;
             
-            const svgUrl = URL.createObjectURL(svgBlob);
-            img.onload = function() {
-                canvas.width = img.width;
-                canvas.height = img.height;
-                ctx.drawImage(img, 0, 0);
+            if (format === 'csv') {
+                // 生成CSV内容
+                const headers = ['图书类别', '地区1采购量', '地区2采购量'];
+                const rows = this.categories.map((category, index) => 
+                    [category, this.region1[index], this.region2[index]].join(',')
+                );
                 
-                if (format === 'png') {
-                    canvas.toBlob(function(blob) {
-                        downloadFile(blob, '科赫雪花_' + new Date().toISOString().slice(0, 10) + '.png');
-                        showStatus(statusElement, '✅ PNG保存成功！', 'success');
-                    });
-                } else if (format === 'pdf') {
-                    // 简单的PDF导出（使用Canvas）
-                    canvas.toBlob(function(blob) {
-                        downloadFile(blob, '科赫雪花_' + new Date().toISOString().slice(0, 10) + '.pdf');
-                        showStatus(statusElement, '✅ PDF保存成功！', 'success');
-                    });
-                }
+                content = [headers.join(','), ...rows].join('\n');
+                filename = '图书采购数据_' + new Date().toISOString().slice(0, 10) + '.csv';
+                mimeType = 'text/csv';
                 
-                URL.revokeObjectURL(svgUrl);
-            };
+            } else if (format === 'json') {
+                // 生成JSON内容
+                content = JSON.stringify({
+                    categories: this.categories,
+                    region1: this.region1,
+                    region2: this.region2
+                }, null, 2);
+                filename = '图书采购数据_' + new Date().toISOString().slice(0, 10) + '.json';
+                mimeType = 'application/json';
+            }
             
-            img.src = svgUrl;
+            // 创建下载链接
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            this.showStatus(`✅ ${format.toUpperCase()}数据导出成功！`, 'success');
+        } catch (error) {
+            this.showStatus('❌ 导出失败: ' + error.message, 'error');
         }
-    } catch (error) {
-        showStatus(statusElement, '❌ 保存失败: ' + error.message, 'error');
+    },
+    
+    // 显示状态消息
+    showStatus: function(message, type) {
+        const statusElement = document.getElementById('barDataStatus');
+        if (!statusElement) return;
+        
+        statusElement.textContent = message;
+        statusElement.className = 'status-message status-' + type;
+        statusElement.style.display = 'block';
+        
+        // 3秒后自动隐藏
+        setTimeout(() => {
+            statusElement.style.display = 'none';
+        }, 3000);
     }
-}
+};
 
-// 下载文件辅助函数
-function downloadFile(blob, filename) {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-}
+// 汇率数据存储
+const lineData = {
+    dates: ['7月1日', '7月5日', '7月10日', '7月15日', '7月20日', '7月25日', '7月31日'],
+    rates2017: [6.78, 6.79, 6.77, 6.76, 6.75, 6.74, 6.73],
+    rates2019: [6.87, 6.88, 6.86, 6.85, 6.84, 6.83, 6.82],
+    
+    // 初始化数据表
+    initTable: function() {
+        const tableBody = document.getElementById('lineDataTableBody');
+        if (!tableBody) return;
+        
+        tableBody.innerHTML = '';
+        
+        this.dates.forEach((date, index) => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><input type="text" value="${date}" onchange="lineData.updateData(${index}, 'date', this.value)"></td>
+                <td><input type="number" value="${this.rates2017[index]}" step="0.01" onchange="lineData.updateData(${index}, 'rates2017', this.value)"></td>
+                <td><input type="number" value="${this.rates2019[index]}" step="0.01" onchange="lineData.updateData(${index}, 'rates2019', this.value)"></td>
+                <td>
+                    <button class="editor-btn danger" onclick="lineData.deleteRow(${index})" style="padding: 5px 10px; font-size: 0.8em;">删除</button>
+                </td>
+            `;
+            tableBody.appendChild(row);
+        });
+    },
+    
+    // 更新数据
+    updateData: function(index, type, value) {
+        if (type === 'date') {
+            this.dates[index] = value;
+        } else if (type === 'rates2017') {
+            this.rates2017[index] = parseFloat(value) || 0;
+        } else if (type === 'rates2019') {
+            this.rates2019[index] = parseFloat(value) || 0;
+        }
+        
+        this.applyChanges();
+    },
+    
+    // 添加新行
+    addRow: function() {
+        this.dates.push('新日期');
+        this.rates2017.push(6.80);
+        this.rates2019.push(6.90);
+        
+        this.initTable();
+        this.showStatus('✅ 新行添加成功！', 'success');
+    },
+    
+    // 删除行
+    deleteRow: function(index) {
+        if (this.dates.length <= 1) {
+            this.showStatus('❌ 至少保留一行数据！', 'error');
+            return;
+        }
+        
+        this.dates.splice(index, 1);
+        this.rates2017.splice(index, 1);
+        this.rates2019.splice(index, 1);
+        
+        this.initTable();
+        this.showStatus('✅ 行删除成功！', 'success');
+    },
+    
+    // 应用更改到主图表
+    applyChanges: function() {
+        updateLineChart();
+        this.showStatus('✅ 更改已应用到图表！', 'success');
+    },
+    
+    // 重置数据
+    resetData: function() {
+        this.dates = ['7月1日', '7月5日', '7月10日', '7月15日', '7月20日', '7月25日', '7月31日'];
+        this.rates2017 = [6.78, 6.79, 6.77, 6.76, 6.75, 6.74, 6.73];
+        this.rates2019 = [6.87, 6.88, 6.86, 6.85, 6.84, 6.83, 6.82];
+        
+        this.initTable();
+        this.showStatus('✅ 数据已重置！', 'success');
+    },
+    
+    // 导出数据
+    exportData: function(format) {
+        try {
+            let content, filename, mimeType;
+            
+            if (format === 'csv') {
+                const headers = ['日期', '2017年汇率', '2019年汇率'];
+                const rows = this.dates.map((date, index) => 
+                    [date, this.rates2017[index], this.rates2019[index]].join(',')
+                );
+                
+                content = [headers.join(','), ...rows].join('\n');
+                filename = '汇率数据_' + new Date().toISOString().slice(0, 10) + '.csv';
+                mimeType = 'text/csv';
+                
+            } else if (format === 'json') {
+                content = JSON.stringify({
+                    dates: this.dates,
+                    rates2017: this.rates2017,
+                    rates2019: this.rates2019
+                }, null, 2);
+                filename = '汇率数据_' + new Date().toISOString().slice(0, 10) + '.json';
+                mimeType = 'application/json';
+            }
+            
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            this.showStatus(`✅ ${format.toUpperCase()}数据导出成功！`, 'success');
+        } catch (error) {
+            this.showStatus('❌ 导出失败: ' + error.message, 'error');
+        }
+    },
+    
+    // 显示状态消息
+    showStatus: function(message, type) {
+        const statusElement = document.getElementById('lineDataStatus');
+        if (!statusElement) return;
+        
+        statusElement.textContent = message;
+        statusElement.className = 'status-message status-' + type;
+        statusElement.style.display = 'block';
+        
+        setTimeout(() => {
+            statusElement.style.display = 'none';
+        }, 3000);
+    }
+};
 
-// 显示状态消息
-function showStatus(element, message, type) {
-    if (!element) return;
+// 温度数据存储
+const tempData = {
+    days: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
+    maxTemps: [28, 30, 32, 29, 27, 25, 26],
+    minTemps: [18, 20, 22, 19, 17, 15, 16],
     
-    element.textContent = message;
-    element.className = 'status-message status-' + type;
-    element.style.display = 'block';
+    initTable: function() {
+        const tableBody = document.getElementById('tempDataTableBody');
+        if (!tableBody) return;
+        
+        tableBody.innerHTML = '';
+        
+        this.days.forEach((day, index) => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><input type="text" value="${day}" onchange="tempData.updateData(${index}, 'day', this.value)"></td>
+                <td><input type="number" value="${this.maxTemps[index]}" onchange="tempData.updateData(${index}, 'maxTemp', this.value)"></td>
+                <td><input type="number" value="${this.minTemps[index]}" onchange="tempData.updateData(${index}, 'minTemp', this.value)"></td>
+                <td>
+                    <button class="editor-btn danger" onclick="tempData.deleteRow(${index})" style="padding: 5px 10px; font-size: 0.8em;">删除</button>
+                </td>
+            `;
+            tableBody.appendChild(row);
+        });
+    },
     
-    // 3秒后自动隐藏
-    setTimeout(() => {
-        element.style.display = 'none';
-    }, 3000);
-}
+    updateData: function(index, type, value) {
+        if (type === 'day') {
+            this.days[index] = value;
+        } else if (type === 'maxTemp') {
+            this.maxTemps[index] = parseInt(value) || 0;
+        } else if (type === 'minTemp') {
+            this.minTemps[index] = parseInt(value) || 0;
+        }
+        
+        this.applyChanges();
+    },
+    
+    addRow: function() {
+        this.days.push('新日期');
+        this.maxTemps.push(25);
+        this.minTemps.push(15);
+        
+        this.initTable();
+        this.showStatus('✅ 新行添加成功！', 'success');
+    },
+    
+    deleteRow: function(index) {
+        if (this.days.length <= 1) {
+            this.showStatus('❌ 至少保留一行数据！', 'error');
+            return;
+        }
+        
+        this.days.splice(index, 1);
+        this.maxTemps.splice(index, 1);
+        this.minTemps.splice(index, 1);
+        
+        this.initTable();
+        this.showStatus('✅ 行删除成功！', 'success');
+    },
+    
+    applyChanges: function() {
+        updateTempChart();
+        this.showStatus('✅ 更改已应用到图表！', 'success');
+    },
+    
+    resetData: function() {
+        this.days = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+        this.maxTemps = [28, 30, 32, 29, 27, 25, 26];
+        this.minTemps = [18, 20, 22, 19, 17, 15, 16];
+        
+        this.initTable();
+        this.showStatus('✅ 数据已重置！', 'success');
+    },
+    
+    exportData: function(format) {
+        try {
+            let content, filename, mimeType;
+            
+            if (format === 'csv') {
+                const headers = ['日期', '最高温度', '最低温度'];
+                const rows = this.days.map((day, index) => 
+                    [day, this.maxTemps[index], this.minTemps[index]].join(',')
+                );
+                
+                content = [headers.join(','), ...rows].join('\n');
+                filename = '温度数据_' + new Date().toISOString().slice(0, 10) + '.csv';
+                mimeType = 'text/csv';
+                
+            } else if (format === 'json') {
+                content = JSON.stringify({
+                    days: this.days,
+                    maxTemps: this.maxTemps,
+                    minTemps: this.minTemps
+                }, null, 2);
+                filename = '温度数据_' + new Date().toISOString().slice(0, 10) + '.json';
+                mimeType = 'application/json';
+            }
+            
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            this.showStatus(`✅ ${format.toUpperCase()}数据导出成功！`, 'success');
+        } catch (error) {
+            this.showStatus('❌ 导出失败: ' + error.message, 'error');
+        }
+    },
+    
+    showStatus: function(message, type) {
+        const statusElement = document.getElementById('tempDataStatus');
+        if (!statusElement) return;
+        
+        statusElement.textContent = message;
+        statusElement.className = 'status-message status-' + type;
+        statusElement.style.display = 'block';
+        
+        setTimeout(() => {
+            statusElement.style.display = 'none';
+        }, 3000);
+    }
+};
+
+// 标记数据存储
+const markerData = {
+    points: [
+        { name: '点A', x: 1, y: 2 },
+        { name: '点B', x: 2, y: 4 },
+        { name: '点C', x: 3, y: 6 },
+        { name: '点D', x: 4, y: 4 },
+        { name: '点E', x: 5, y: 2 }
+    ],
+    
+    initTable: function() {
+        const tableBody = document.getElementById('markerDataTableBody');
+        if (!tableBody) return;
+        
+        tableBody.innerHTML = '';
+        
+        this.points.forEach((point, index) => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><input type="text" value="${point.name}" onchange="markerData.updateData(${index}, 'name', this.value)"></td>
+                <td><input type="number" value="${point.x}" step="0.1" onchange="markerData.updateData(${index}, 'x', this.value)"></td>
+                <td><input type="number" value="${point.y}" step="0.1" onchange="markerData.updateData(${index}, 'y', this.value)"></td>
+                <td>
+                    <button class="editor-btn danger" onclick="markerData.deleteRow(${index})" style="padding: 5px 10px; font-size: 0.8em;">删除</button>
+                </td>
+            `;
+            tableBody.appendChild(row);
+        });
+    },
+    
+    updateData: function(index, type, value) {
+        if (type === 'name') {
+            this.points[index].name = value;
+        } else if (type === 'x') {
+            this.points[index].x = parseFloat(value) || 0;
+        } else if (type === 'y') {
+            this.points[index].y = parseFloat(value) || 0;
+        }
+        
+        this.applyChanges();
+    },
+    
+    addRow: function() {
+        this.points.push({ name: '新点', x: 3, y: 3 });
+        this.initTable();
+        this.showStatus('✅ 新点添加成功！', 'success');
+    },
+    
+    deleteRow: function(index) {
+        if (this.points.length <= 1) {
+            this.showStatus('❌ 至少保留一个点！', 'error');
+            return;
+        }
+        
+        this.points.splice(index, 1);
+        this.initTable();
+        this.showStatus('✅ 点删除成功！', 'success');
+    },
+    
+    applyChanges: function() {
+        updateMarkerDemo();
+        this.showStatus('✅ 更改已应用到图表！', 'success');
+    },
+    
+    resetData: function() {
+        this.points = [
+            { name: '点A', x: 1, y: 2 },
+            { name: '点B', x: 2, y: 4 },
+            { name: '点C', x: 3, y: 6 },
+            { name: '点D', x: 4, y: 4 },
+            { name: '点E', x: 5, y: 2 }
+        ];
+        
+        this.initTable();
+        this.showStatus('✅ 数据已重置！', 'success');
+    },
+    
+    exportData: function(format) {
+        try {
+            let content, filename, mimeType;
+            
+            if (format === 'csv') {
+                const headers = ['点名称', 'X坐标', 'Y坐标'];
+                const rows = this.points.map(point => 
+                    [point.name, point.x, point.y].join(',')
+                );
+                
+                content = [headers.join(','), ...rows].join('\n');
+                filename = '标记数据_' + new Date().toISOString().slice(0, 10) + '.csv';
+                mimeType = 'text/csv';
+                
+            } else if (format === 'json') {
+                content = JSON.stringify({
+                    points: this.points
+                }, null, 2);
+                filename = '标记数据_' + new Date().toISOString().slice(0, 10) + '.json';
+                mimeType = 'application/json';
+            }
+            
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            this.showStatus(`✅ ${format.toUpperCase()}数据导出成功！`, 'success');
+        } catch (error) {
+            this.showStatus('❌ 导出失败: ' + error.message, 'error');
+        }
+    },
+    
+    showStatus: function(message, type) {
+        const statusElement = document.getElementById('markerDataStatus');
+        if (!statusElement) return;
+        
+        statusElement.textContent = message;
+        statusElement.className = 'status-message status-' + type;
+        statusElement.style.display = 'block';
+        
+        setTimeout(() => {
+            statusElement.style.display = 'none';
+        }, 3000);
+    }
+};
 
 // 页面加载完成后初始化
 window.addEventListener('DOMContentLoaded', function() {
-    // 初始化第一个标签页的图表
-    updateBarChart();
-});
-
-// 响应窗口大小变化
-window.addEventListener('resize', function() {
-    // 重新绘制当前显示的图表
-    const activeTab = document.querySelector('.tab-content.active');
-    if (activeTab) {
-        const tabId = activeTab.id;
-        initializeChart(tabId);
-    }
+    // 初始化第一个标签页
+    showTab('tab1');
 });
