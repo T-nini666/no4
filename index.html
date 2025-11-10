@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>第4章 - 数据可视化交互平台</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        .header h1 {
+            color: #2c3e50;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #7f8c8d;
+            font-size: 1.2em;
+        }
+        
+        .nav-tabs {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .tab-btn {
+            background: rgba(255, 255, 255, 0.9);
+            border: none;
+            padding: 12px 25px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.3s ease;
+            margin: 5px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .tab-btn:hover {
+            background: #3498db;
+            color: white;
+            transform: translateY(-2px);
+        }
+        
+        .tab-btn.active {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .chart-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        .chart-title {
+            text-align: center;
+            font-size: 1.8em;
+            margin-bottom: 20px;
+            color: #2c3e50;
+        }
+        
+        .chart-description {
+            text-align: center;
+            color: #7f8c8d;
+            margin-bottom: 25px;
+            line-height: 1.6;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .control-group {
+            background: rgba(52, 152, 219, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .control-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        .control-input {
+            padding: 8px 12px;
+            border: 2px solid #bdc3c7;
+            border-radius: 5px;
+            font-size: 1em;
+            transition: border-color 0.3s ease;
+        }
+        
+        .control-input:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
+        .chart {
+            width: 100%;
+            height: 500px;
+            border-radius: 10px;
+            background: white;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.5s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .save-section {
+            text-align: center;
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(46, 204, 113, 0.1);
+            border-radius: 10px;
+        }
+        
+        .save-btn {
+            background: linear-gradient(135deg, #2ecc71, #27ae60);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            margin: 5px;
+            box-shadow: 0 4px 15px rgba(46, 204, 113, 0.3);
+        }
+        
+        .save-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(46, 204, 113, 0.4);
+        }
+        
+        .format-select {
+            padding: 8px 12px;
+            border: 2px solid #bdc3c7;
+            border-radius: 5px;
+            font-size: 1em;
+            margin: 0 10px;
+        }
+        
+        .status-message {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            font-weight: bold;
+            display: none;
+        }
+        
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            color: white;
+            padding: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .header h1 { font-size: 2em; }
+            .chart { height: 400px; }
+            .controls { flex-direction: column; }
+            .nav-tabs { flex-direction: column; }
+            .save-section { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 第4章 - 数据可视化交互平台</h1>
+            <p>基于Python matplotlib的可视化图表交互展示</p>
+        </div>
+        
+        <div class="nav-tabs">
+            <button class="tab-btn active" onclick="showTab('tab1')">📈 图书采购柱状图</button>
+            <button class="tab-btn" onclick="showTab('tab2')">💹 汇率走势折线图</button>
+            <button class="tab-btn" onclick="showTab('tab3')">🌡️ 温度变化趋势图</button>
+            <button class="tab-btn" onclick="showTab('tab4')">❄️ 科赫雪花分形图</button>
+            <button class="tab-btn" onclick="showTab('tab5')">🎨 数据标记样式</button>
+        </div>
+        
+        <!-- 图书采购柱状图 -->
+        <div id="tab1" class="tab-content active">
+            <div class="chart-container">
+                <h2 class="chart-title">图书采购情况对比</h2>
+                <p class="chart-description">两个地区对不同种类图书的采购情况对比分析</p>
+                
+                <div class="controls">
+                    <div class="control-group">
+                        <label>地区1数据调整</label>
+                        <input type="range" class="control-input" id="region1Slider" min="50" max="200" value="100" onchange="updateBarChart()">
+                    </div>
+                    <div class="control-group">
+                        <label>地区2数据调整</label>
+                        <input type="range" class="control-input" id="region2Slider" min="50" max="200" value="100" onchange="updateBarChart()">
+                    </div>
+                    <div class="control-group">
+                        <label>图表类型</label>
+                        <select class="control-input" id="barType" onchange="updateBarChart()">
+                            <option value="stacked">堆叠柱状图</option>
+                            <option value="grouped">分组柱状图</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div id="barChart" class="chart"></div>
+                
+                <div class="save-section">
+                    <h3>保存图表</h3>
+                    <select class="format-select" id="barChartFormat">
+                        <option value="png">PNG 图片</option>
+                        <option value="jpg">JPG 图片</option>
+                        <option value="svg">SVG 矢量图</option>
+                    </select>
+                    <button class="save-btn" onclick="saveChart('barChart', '图书采购情况对比')">💾 保存图表</button>
+                    <div id="barChartStatus" class="status-message"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 汇率走势折线图 -->
+        <div id="tab2" class="tab-content">
+            <div class="chart-container">
+                <h2 class="chart-title">美元/人民币汇率走势</h2>
+                <p class="chart-description">2017年7月与2019年7月汇率对比分析</p>
+                
+                <div class="controls">
+                    <div class="control-group">
+                        <label>2017年汇率</label>
+                        <input type="checkbox" id="show2017" checked onchange="updateLineChart()">
+                    </div>
+                    <div class="control-group">
+                        <label>2019年汇率</label>
+                        <input type="checkbox" id="show2019" checked onchange="updateLineChart()">
+                    </div>
+                    <div class="control-group">
+                        <label>显示网格</label>
+                        <input type="checkbox" id="showGrid" checked onchange="updateLineChart()">
+                    </div>
+                    <div class="control-group">
+                        <label>平滑曲线</label>
+                        <input type="checkbox" id="smoothLine" onchange="updateLineChart()">
+                    </div>
+                </div>
+                
+                <div id="lineChart" class="chart"></div>
+                
+                <div class="save-section">
+                    <h3>保存图表</h3>
+                    <select class="format-select" id="lineChartFormat">
+                        <option value="png">PNG 图片</option>
+                        <option value="jpg">JPG 图片</option>
+                        <option value="svg">SVG 矢量图</option>
+                    </select>
+                    <button class="save-btn" onclick="saveChart('lineChart', '美元人民币汇率走势')">💾 保存图表</button>
+                    <div id="lineChartStatus" class="status-message"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 温度变化趋势图 -->
+        <div id="tab3" class="tab-content">
+            <div class="chart-container">
+                <h2 class="chart-title">温度变化趋势图</h2>
+                <p class="chart-description">最高和最低温度变化趋势对比</p>
+                
+                <div class="controls">
+                    <div class="control-group">
+                        <label>最高温度</label>
+                        <input type="checkbox" id="showMaxTemp" checked onchange="updateTempChart()">
+                    </div>
+                    <div class="control-group">
+                        <label>最低温度</label>
+                        <input type="checkbox" id="showMinTemp" checked onchange="updateTempChart()">
+                    </div>
+                    <div class="control-group">
+                        <label>标记样式</label>
+                        <select class="control-input" id="markerStyle" onchange="updateTempChart()">
+                            <option value="star">星号标记</option>
+                            <option value="circle">圆形标记</option>
+                            <option value="square">方形标记</option>
+                            <option value="none">无标记</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label>填充区域</label>
+                        <input type="checkbox" id="fillArea" onchange="updateTempChart()">
+                    </div>
+                </div>
+                
+                <div id="tempChart" class="chart"></div>
+                
+                <div class="save-section">
+                    <h3>保存图表</h3>
+                    <select class="format-select" id="tempChartFormat">
+                        <option value="png">PNG 图片</option>
+                        <option value="jpg">JPG 图片</option>
+                        <option value="svg">SVG 矢量图</option>
+                    </select>
+                    <button class="save-btn" onclick="saveChart('tempChart', '温度变化趋势图')">💾 保存图表</button>
+                    <div id="tempChartStatus" class="status-message"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 科赫雪花分形图 -->
+        <div id="tab4" class="tab-content">
+            <div class="chart-container">
+                <h2 class="chart-title">科赫雪花分形图形</h2>
+                <p class="chart-description">基于分形几何的科赫雪花生成器</p>
+                
+                <div class="controls">
+                    <div class="control-group">
+                        <label>迭代次数</label>
+                        <input type="range" class="control-input" id="iterationSlider" min="0" max="5" value="3" onchange="updateKochSnowflake()">
+                    </div>
+                    <div class="control-group">
+                        <label>雪花颜色</label>
+                        <input type="color" class="control-input" id="snowflakeColor" value="#FF6B6B" onchange="updateKochSnowflake()">
+                    </div>
+                    <div class="control-group">
+                        <label>动画效果</label>
+                        <input type="checkbox" id="animateSnowflake" onchange="toggleSnowflakeAnimation()">
+                    </div>
+                    <div class="control-group">
+                        <label>填充模式</label>
+                        <select class="control-input" id="fillMode" onchange="updateKochSnowflake()">
+                            <option value="solid">实心填充</option>
+                            <option value="gradient">渐变填充</option>
+                            <option value="pattern">图案填充</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div id="kochChart" class="chart"></div>
+                
+                <div class="save-section">
+                    <h3>保存图表</h3>
+                    <select class="format-select" id="kochChartFormat">
+                        <option value="png">PNG 图片</option>
+                        <option value="svg">SVG 矢量图</option>
+                        <option value="pdf">PDF 文档</option>
+                    </select>
+                    <button class="save-btn" onclick="saveSnowflake()">💾 保存雪花</button>
+                    <div id="kochChartStatus" class="status-message"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 数据标记样式 -->
+        <div id="tab5" class="tab-content">
+            <div class="chart-container">
+                <h2 class="chart-title">数据标记样式展示</h2>
+                <p class="chart-description">不同的数据标记样式和文本标注效果</p>
+                
+                <div class="controls">
+                    <div class="control-group">
+                        <label>标记类型</label>
+                        <select class="control-input" id="markerType" onchange="updateMarkerDemo()">
+                            <option value="star">星号标记</option>
+                            <option value="circle">圆形标记</option>
+                            <option value="square">方形标记</option>
+                            <option value="diamond">菱形标记</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label>标记大小</label>
+                        <input type="range" class="control-input" id="markerSize" min="5" max="30" value="15" onchange="updateMarkerDemo()">
+                    </div>
+                    <div class="control-group">
+                        <label>标记颜色</label>
+                        <input type="color" class="control-input" id="markerColor" value="#FF6B6B" onchange="updateMarkerDemo()">
+                    </div>
+                    <div class="control-group">
+                        <label>边框颜色</label>
+                        <input type="color" class="control-input" id="borderColor" value="#2980B9" onchange="updateMarkerDemo()">
+                    </div>
+                </div>
+                
+                <div id="markerChart" class="chart"></div>
+                
+                <div class="save-section">
+                    <h3>保存图表</h3>
+                    <select class="format-select" id="markerChartFormat">
+                        <option value="png">PNG 图片</option>
+                        <option value="jpg">JPG 图片</option>
+                        <option value="svg">SVG 矢量图</option>
+                    </select>
+                    <button class="save-btn" onclick="saveChart('markerChart', '数据标记样式展示')">💾 保存图表</button>
+                    <div id="markerChartStatus" class="status-message"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="footer">
+        <p>基于第4章.ipynb数据可视化内容构建的交互式网页应用</p>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
